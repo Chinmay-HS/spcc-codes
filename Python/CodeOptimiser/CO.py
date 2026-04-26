@@ -1,107 +1,73 @@
-import re
-import time
-
+import re, time
 
 class Instr:
-    def __init__(self, id, line):
-        self.id = id
-        parts = line.split("=")
-        self.lhs = parts[0].strip()
-        self.rhs = parts[1].strip()
-
-    def __str__(self):
-        return f"{self.lhs} = {self.rhs}"
+    def __init__(self, i, line):
+        self.id = i
+        self.lhs, self.rhs = map(str.strip, line.split("="))
+    def __str__(self): return f"{self.lhs} = {self.rhs}"
 
 
-# COST MODEL
-def compute_cost(code):
-    cost = 0
-    for i in code:
-        rhs = i.rhs
-        if "*" in rhs:
-            cost += 3
-        elif "+" in rhs:
-            cost += 2
-        else:
-            cost += 1
-    return cost
+def cost(code):
+    return sum(3 if "*" in i.rhs else 2 if "+" in i.rhs else 1 for i in code)
 
 
-# -------- MAIN --------
-tac = []
+# READ FILE
+tac = [Instr(i, l.strip()) for i, l in enumerate(open("input.txt"), 1) if l.strip()]
 
-# READ FROM FILE
-with open("input.txt") as f:
-    for idx, line in enumerate(f, 1):
-        if line.strip():
-            tac.append(Instr(idx, line.strip()))
-
-# ORIGINAL
 print("=== ORIGINAL CODE ===")
-for i in tac:
-    print(f"{i.id}: {i}")
+for i in tac: print(f"{i.id}: {i}")
+orig = cost(tac)
 
-original_cost = compute_cost(tac)
 
 # COPY PROPAGATION
-cp_start = time.time_ns()
-
-mapping = {}
+cp_s = time.time_ns()
+mp = {}
 
 for i in tac:
-    # replace variables using map
-    for key in list(mapping.keys()):
-        i.rhs = re.sub(rf"\b{key}\b", mapping[key], i.rhs)
+    for k in list(mp):
+        i.rhs = re.sub(rf"\b{k}\b", mp[k], i.rhs)
 
-    # detect simple copy (x = y)
-    if not any(op in i.rhs for op in ["+", "*"]) and not i.rhs.isdigit():
-        mapping[i.lhs] = mapping.get(i.rhs, i.rhs)
+    if not any(op in i.rhs for op in "+*") and not i.rhs.isdigit():
+        mp[i.lhs] = mp.get(i.rhs, i.rhs)
 
-cp_end = time.time_ns()
+cp_e = time.time_ns()
 
 print("\n=== AFTER COPY PROPAGATION ===")
-for i in tac:
-    print(f"{i.id}: {i}")
+for i in tac: print(f"{i.id}: {i}")
+
 
 # DEAD CODE ELIMINATION
-dce_start = time.time_ns()
+dce_s = time.time_ns()
+used, opt = {"x","y","z","w"}, []
 
-used = {"x", "y", "z", "w"}  # final outputs
-optimized = []
+for i in tac[::-1]:
+    if i.lhs in used:
+        opt.insert(0, i)
+        used |= {t for t in re.split(r"\W+", i.rhs)
+                 if re.match(r"[A-Za-z]\w*", t)}
 
-for inst in reversed(tac):
-    if inst.lhs in used:
-        optimized.insert(0, inst)
+dce_e = time.time_ns()
 
-        tokens = re.split(r"[^a-zA-Z0-9]+", inst.rhs)
-        for t in tokens:
-            if re.match(r"[a-zA-Z][a-zA-Z0-9]*", t):
-                used.add(t)
-
-dce_end = time.time_ns()
-
-# FINAL OUTPUT
 print("\n=== AFTER DEAD CODE ELIMINATION ===")
-for idx, i in enumerate(optimized, 1):
-    print(f"{idx}: {i}")
+for i, v in enumerate(opt, 1): print(f"{i}: {v}")
 
-optimized_cost = compute_cost(optimized)
+opt_cost = cost(opt)
+
 
 # TIMINGS
-total_time = (cp_end - cp_start) + (dce_end - dce_start)
+tot = (cp_e - cp_s) + (dce_e - dce_s)
 
 print("\n=== TIMINGS ===")
-print(f"Copy Propagation: {cp_end - cp_start} ns")
-print(f"Dead Code Elimination: {dce_end - dce_start} ns")
-print(f"Total Optimization Time: {total_time} ns")
+print(f"Copy Propagation: {cp_e - cp_s} ns")
+print(f"Dead Code Elimination: {dce_e - dce_s} ns")
+print(f"Total Optimization Time: {tot} ns")
 
-# COST COMPARISON
+
+# COST
 print("\n=== EXECUTION COST COMPARISON ===")
-print(f"Original Cost: {original_cost}")
-print(f"Optimized Cost: {optimized_cost}")
+print(f"Original Cost: {orig}")
+print(f"Optimized Cost: {opt_cost}")
 
-saved = original_cost - optimized_cost
+saved = orig - opt_cost
 print(f"Cost Reduction: {saved}")
-
-percent = (saved * 100.0) / original_cost if original_cost else 0
-print(f"Improvement: {percent:.2f}%")
+print(f"Improvement: {(saved*100/orig if orig else 0):.2f}%")
