@@ -32,22 +32,6 @@ class Grammar {
         nts.add(nt);
     }
 
-    void solveIndirect(NonTerminal A, NonTerminal B) {
-        List<String> newRules = new ArrayList<>();
-
-        for (String r : A.rules) {
-            if (r.startsWith(B.name)) {
-                for (String br : B.rules) {
-                    newRules.add(br + r.substring(B.name.length()));
-                }
-            } else {
-                newRules.add(r);
-            }
-        }
-
-        A.rules = newRules;
-    }
-
     void solveDirect(NonTerminal A) {
         List<String> alpha = new ArrayList<>();
         List<String> beta = new ArrayList<>();
@@ -80,9 +64,6 @@ class Grammar {
 
     void apply() {
         for (int i = 0; i < nts.size(); i++) {
-            for (int j = 0; j < i; j++) {
-                solveIndirect(nts.get(i), nts.get(j));
-            }
             solveDirect(nts.get(i));
         }
     }
