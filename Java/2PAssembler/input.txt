@@ -1,0 +1,11 @@
+PROG    START   100
+        USING   *,15
+A       DC      F'4'
+B       DC      F'10'
+C       DS      2F
+        L       1,A
+        A       1,B
+        ST      1,C
+        L       2,=F'5'
+        ST      2,C
+        END
